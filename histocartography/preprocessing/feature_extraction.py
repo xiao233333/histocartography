@@ -17,7 +17,7 @@ import torchvision
 from histocartography.preprocessing.tissue_mask import GaussianTissueMask
 from histocartography.utils import dynamic_import_from
 from scipy.stats import skew
-from skimage.feature import greycomatrix, greycoprops
+from skimage.feature import graycomatrix, graycoprops
 from skimage.filters.rank import entropy as Entropy
 from skimage.measure import regionprops
 from skimage.morphology import disk
@@ -207,8 +207,10 @@ class HandcraftedFeatureExtractor(FeatureExtractor):
 
         for region_id, region in enumerate(regions):
 
-            sp_mask = instance_map[region['bbox'][0]:region['bbox'][2], region['bbox'][1]:region['bbox'][3]] == region['label'] 
-            sp_gray = img_gray[region['bbox'][0]:region['bbox'][2], region['bbox'][1]:region['bbox'][3]] * sp_mask
+            sp_mask = instance_map[region['bbox'][0]:region['bbox'][2],
+                                   region['bbox'][1]:region['bbox'][3]] == region['label']
+            sp_gray = img_gray[region['bbox'][0]:region['bbox'][
+                2], region['bbox'][1]:region['bbox'][3]] * sp_mask
 
             # Compute using mask [16 features]
             area = region["area"]
@@ -249,19 +251,19 @@ class HandcraftedFeatureExtractor(FeatureExtractor):
             ]
 
             # GLCM texture features (gray color space) [5 features]
-            glcm = greycomatrix(sp_gray, [1], [0])
+            glcm = graycomatrix(sp_gray, [1], [0])
             # Filter out the first row and column
             filt_glcm = glcm[1:, 1:, :, :]
 
-            glcm_contrast = greycoprops(filt_glcm, prop="contrast")
+            glcm_contrast = graycoprops(filt_glcm, prop="contrast")
             glcm_contrast = glcm_contrast[0, 0]
-            glcm_dissimilarity = greycoprops(filt_glcm, prop="dissimilarity")
+            glcm_dissimilarity = graycoprops(filt_glcm, prop="dissimilarity")
             glcm_dissimilarity = glcm_dissimilarity[0, 0]
-            glcm_homogeneity = greycoprops(filt_glcm, prop="homogeneity")
+            glcm_homogeneity = graycoprops(filt_glcm, prop="homogeneity")
             glcm_homogeneity = glcm_homogeneity[0, 0]
-            glcm_energy = greycoprops(filt_glcm, prop="energy")
+            glcm_energy = graycoprops(filt_glcm, prop="energy")
             glcm_energy = glcm_energy[0, 0]
-            glcm_ASM = greycoprops(filt_glcm, prop="ASM")
+            glcm_ASM = graycoprops(filt_glcm, prop="ASM")
             glcm_ASM = glcm_ASM[0, 0]
             glcm_dispersion = np.std(filt_glcm)
 
@@ -361,12 +363,14 @@ class PatchFeatureExtractor:
         """
         if not isinstance(model, torchvision.models.resnet.ResNet):
             if not hasattr(model, 'classifier'):
-                raise ValueError('Please provide either a ResNet-type architecture or'
-                                 + ' an architecture that has the attribute "classifier".')
+                raise ValueError(
+                    'Please provide either a ResNet-type architecture or' +
+                    ' an architecture that has the attribute "classifier".')
 
             if not (hasattr(model, 'features') or hasattr(model, 'model')):
-                raise ValueError('Please provide an architecture that has the attribute'
-                                 + ' "features" or "model".')
+                raise ValueError(
+                    'Please provide an architecture that has the attribute' +
+                    ' "features" or "model".')
 
     def _get_num_features(self, model: nn.Module, patch_size: int) -> int:
         """
@@ -427,7 +431,9 @@ class PatchFeatureExtractor:
         return model
 
     @staticmethod
-    def _remove_layers(model: nn.Module, extraction_layer: Optional[str] = None) -> nn.Module:
+    def _remove_layers(
+            model: nn.Module,
+            extraction_layer: Optional[str] = None) -> nn.Module:
         """
         Returns the model without the unused layers to get embeddings.
 
@@ -455,8 +461,10 @@ class PatchFeatureExtractor:
                 # remove average pooling layer if necessary
                 if hasattr(model, 'avgpool'):
                     model.avgpool = nn.Sequential()
-                # remove all layers in the feature extractor after the extraction layer
-                model.features = _remove_modules(model.features, extraction_layer)
+                # remove all layers in the feature extractor after the
+                # extraction layer
+                model.features = _remove_modules(
+                    model.features, extraction_layer)
         return model
 
     def __call__(self, patch: torch.Tensor) -> torch.Tensor:
@@ -493,7 +501,7 @@ class InstanceMapPatchDataset(Dataset):
     ) -> None:
         """
         Create a dataset for a given image and extracted instance map with desired patches
-        of (patch_size, patch_size, 3). 
+        of (patch_size, patch_size, 3).
 
         Args:
             image (np.ndarray): RGB input image.
@@ -502,7 +510,7 @@ class InstanceMapPatchDataset(Dataset):
             stride (int): Desired stride for patch extraction. If None, stride is set to patch size. Defaults to None.
             resize_size (int): Desired resized size to input the network. If None, no resizing is done and the
                                patches of size patch_size are provided to the network. Defaults to None.
-            fill_value (Optional[int]): Value to fill outside the instance maps. Defaults to 255. 
+            fill_value (Optional[int]): Value to fill outside the instance maps. Defaults to 255.
             mean (list[float], optional): Channel-wise mean for image normalization.
             std (list[float], optional): Channel-wise std for image normalization.
             transform (Callable): Transform to apply. Defaults to None.
@@ -529,10 +537,9 @@ class InstanceMapPatchDataset(Dataset):
         )
         self.instance_map = np.pad(
             self.instance_map,
-            ((self.patch_size, self.patch_size), (self.patch_size, self.patch_size)),
-            mode="constant",
-            constant_values=0,
-        )
+            ((self.patch_size, self.patch_size),
+             (self.patch_size, self.patch_size)),
+            mode="constant", constant_values=0,)
         self.patch_size_2 = int(self.patch_size // 2)
         self.threshold = int(self.patch_size * self.patch_size * 0.25)
         self.properties = regionprops(self.instance_map)
@@ -555,7 +562,12 @@ class InstanceMapPatchDataset(Dataset):
         self._precompute()
         self._warning()
 
-    def _add_patch(self, center_x: int, center_y: int, instance_index: int, region_count: int) -> None:
+    def _add_patch(
+            self,
+            center_x: int,
+            center_y: int,
+            instance_index: int,
+            region_count: int) -> None:
         """
         Extract and include patch information.
 
@@ -583,7 +595,7 @@ class InstanceMapPatchDataset(Dataset):
 
         Args:
             loc (list): Top-left (x,y) coordinate of a patch.
-            region_id (int): Index of the region being processed. Defaults to None. 
+            region_id (int): Index of the region being processed. Defaults to None.
         """
         min_x = loc[0]
         min_y = loc[1]
@@ -593,7 +605,8 @@ class InstanceMapPatchDataset(Dataset):
         patch = copy.deepcopy(self.image[min_y:max_y, min_x:max_x])
 
         if self.with_instance_masking:
-            instance_mask = ~(self.instance_map[min_y:max_y, min_x:max_x] == region_id)
+            instance_mask = ~(
+                self.instance_map[min_y:max_y, min_x:max_x] == region_id)
             patch[instance_mask, :] = self.fill_value
 
         return patch
@@ -610,7 +623,7 @@ class InstanceMapPatchDataset(Dataset):
             # Extract bounding box
             min_y, min_x, max_y, max_x = region.bbox
 
-            # Extract patch information around the centroid patch 
+            # Extract patch information around the centroid patch
             # quadrant 1 (includes centroid patch)
             y_ = copy.deepcopy(center_y)
             while y_ >= min_y:
@@ -748,8 +761,8 @@ class DeepFeatureExtractor(FeatureExtractor):
             self.normalizer_mean = [0.485, 0.456, 0.406]
             self.normalizer_std = [0.229, 0.224, 0.225]
         self.patch_feature_extractor = PatchFeatureExtractor(
-            architecture, device=self.device, patch_size=patch_size, extraction_layer=extraction_layer
-        )
+            architecture, device=self.device, patch_size=patch_size,
+            extraction_layer=extraction_layer)
         self.fill_value = fill_value
         self.batch_size = batch_size
         self.architecture_unprocessed = architecture
@@ -929,8 +942,7 @@ class GridPatchDataset(Dataset):
         self.y_top_pad, self.y_bottom_pad = _get_pad_size(
             image.shape[0], patch_size, stride)
         self.pad = torch.nn.ConstantPad2d(
-            (self.x_bottom_pad, self.x_top_pad, self.y_bottom_pad, self.y_top_pad), 255
-        )
+            (self.x_bottom_pad, self.x_top_pad, self.y_bottom_pad, self.y_top_pad), 255)
         self.image = self.pad(torch.as_tensor(np.array(image)).permute(
             [2, 0, 1])).permute([1, 2, 0])
         self.patch_size = patch_size
@@ -944,7 +956,8 @@ class GridPatchDataset(Dataset):
             1, self.patch_size, self.stride
         )
         self.outshape = (patches.shape[0], patches.shape[1])
-        patches = patches.reshape([-1, n_channels, self.patch_size, self.patch_size])
+        patches = patches.reshape(
+            [-1, n_channels, self.patch_size, self.patch_size])
         return patches
 
     def __getitem__(self, index: int):
@@ -987,8 +1000,7 @@ class MaskedGridPatchDataset(GridPatchDataset):
             self.mask_transform = transforms.Compose(basic_transforms)
 
         self.pad = torch.nn.ConstantPad2d(
-            (self.x_bottom_pad, self.x_top_pad, self.y_bottom_pad, self.y_top_pad), 0
-        )
+            (self.x_bottom_pad, self.x_top_pad, self.y_bottom_pad, self.y_top_pad), 0)
         self.mask = self.pad(torch.as_tensor(np.array(mask)).permute(
             [2, 0, 1])).permute([1, 2, 0])
         self.mask_patches = self._generate_patches(self.mask)
@@ -1003,10 +1015,12 @@ class MaskedGridPatchDataset(GridPatchDataset):
         Returns:
             Tuple[int, torch.Tensor, torch.Tensor]: Patch index, image as tensor, mask as tensor.
         """
-        image_patch = self.dataset_transform(self.patches[index].numpy().transpose([1, 2, 0]))
+        image_patch = self.dataset_transform(
+            self.patches[index].numpy().transpose([1, 2, 0]))
         if self.mask_transform is not None:
             # after resizing, the mask should still be binary and of type uint8
-            mask_patch = self.mask_transform(255*self.mask_patches[index].numpy().transpose([1, 2, 0]))
+            mask_patch = self.mask_transform(
+                255 * self.mask_patches[index].numpy().transpose([1, 2, 0]))
             mask_patch = torch.round(mask_patch).type(torch.uint8)
         else:
             mask_patch = self.mask_patches[index]
@@ -1076,8 +1090,8 @@ class GridDeepFeatureExtractor(FeatureExtractor):
             self.normalizer_mean = [0.485, 0.456, 0.406]
             self.normalizer_std = [0.229, 0.224, 0.225]
         self.patch_feature_extractor = PatchFeatureExtractor(
-            architecture, device=self.device, patch_size=patch_size, extraction_layer=extraction_layer
-        )
+            architecture, device=self.device, patch_size=patch_size,
+            extraction_layer=extraction_layer)
         self.batch_size = batch_size
         self.fill_value = fill_value
         self.architecture_unprocessed = architecture
@@ -1243,13 +1257,10 @@ class MaskedGridDeepFeatureExtractor(GridDeepFeatureExtractor):
         mask = np.expand_dims(mask, axis=2)
 
         # create dataloader for image and corresponding mask patches
-        masked_patch_dataset = MaskedGridPatchDataset(image=input_image,
-                                                      mask=mask,
-                                                      resize_size=self.resize_size,
-                                                      patch_size=self.patch_size,
-                                                      stride=self.stride,
-                                                      mean=self.normalizer_mean,
-                                                      std=self.normalizer_std)
+        masked_patch_dataset = MaskedGridPatchDataset(
+            image=input_image, mask=mask, resize_size=self.resize_size,
+            patch_size=self.patch_size, stride=self.stride,
+            mean=self.normalizer_mean, std=self.normalizer_std)
         patch_loader = DataLoader(masked_patch_dataset,
                                   shuffle=False,
                                   batch_size=self.batch_size,
@@ -1269,18 +1280,25 @@ class MaskedGridDeepFeatureExtractor(GridDeepFeatureExtractor):
         for _, img_patches, mask_patches in tqdm(patch_loader,
                                                  total=len(patch_loader),
                                                  disable=not self.verbose):
-            index_filter, features = self._validate_and_extract_features(img_patches, mask_patches)
+            index_filter, features = self._validate_and_extract_features(
+                img_patches,
+                mask_patches)
             if len(img_patches) == 1:
                 features = features.unsqueeze(dim=0)
             for i in range(len(index_filter)):
-                all_index_filter[indices[offset+i]] = index_filter[i]
-                all_features[indices[offset+i]] = features[i].cpu().detach().numpy()
+                all_index_filter[indices[offset + i]] = index_filter[i]
+                all_features[indices[offset + i]
+                             ] = features[i].cpu().detach().numpy()
             offset += len(index_filter)
 
         # convert to pandas dataframes to allow storing as .h5 files
         all_index_filter = pd.DataFrame(all_index_filter, index=['is_valid'])
-        all_features = pd.DataFrame(np.transpose(np.stack(list(all_features.values()))),
-                                    columns=list(all_features.keys()))
+        all_features = pd.DataFrame(
+            np.transpose(
+                np.stack(
+                    list(
+                        all_features.values()))), columns=list(
+                all_features.keys()))
 
         return all_index_filter, all_features
 
@@ -1300,7 +1318,8 @@ class MaskedGridDeepFeatureExtractor(GridDeepFeatureExtractor):
         Returns:
             Tuple[List[bool], torch.Tensor]: Boolean filter for (in)valid patches, extracted patch features.
         """
-        # record valid and invalid patches (sufficient area of tissue compared to background)
+        # record valid and invalid patches (sufficient area of tissue compared
+        # to background)
         index_filter = []
         for mask_p in mask_patches:
             tissue_fraction = (mask_p == 1).sum() / torch.numel(mask_p)
@@ -1312,6 +1331,7 @@ class MaskedGridDeepFeatureExtractor(GridDeepFeatureExtractor):
         # extract features of all patches
         features = self.patch_feature_extractor(img_patches)
         return index_filter, features
+
 
 def _build_augmentations(
     rotations: Optional[List[int]] = None,
@@ -1366,6 +1386,7 @@ def _build_augmentations(
             augmentaions.append(transforms.Compose(t))
     return augmentaions
 
+
 def _remove_modules(model: nn.Module, last_layer: str) -> nn.Module:
     """
     Remove all modules in the model that come after a given layer.
@@ -1378,10 +1399,11 @@ def _remove_modules(model: nn.Module, last_layer: str) -> nn.Module:
         nn.Module: Model without pruned modules.
     """
     modules = [n for n, _ in model.named_children()]
-    modules_to_remove = modules[modules.index(last_layer)+1:]
+    modules_to_remove = modules[modules.index(last_layer) + 1:]
     for mod in modules_to_remove:
         setattr(model, mod, nn.Sequential())
     return model
+
 
 def _get_pad_size(size: int, patch_size: int, stride: int) -> Tuple[int, int]:
     """Computes the necessary top and bottom padding size to evenly devide an input size into patches with a given stride
